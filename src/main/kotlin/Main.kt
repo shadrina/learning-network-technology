@@ -4,15 +4,15 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.MulticastSocket
 
-const val MULTICAST_GROUP_ADDRESS = "224.11.11.11"
-
 const val TTL = 10
 const val MULTICAST_PORT = 60000
 const val MY_PORT = 51111
 
 data class MulticastGroupMemberInfo(val address: InetAddress, var timeRemaining: Int = TTL)
 
-class ServerRunnable(private val datagramSocket: DatagramSocket) : Runnable {
+class ServerRunnable(
+        private val datagramSocket: DatagramSocket,
+        private val multicastAddress: InetAddress) : Runnable {
     override fun run() {
         try {
             while (true) {
@@ -20,7 +20,7 @@ class ServerRunnable(private val datagramSocket: DatagramSocket) : Runnable {
                 val msgPacket = DatagramPacket(
                         msg.toByteArray(),
                         msg.toByteArray().size,
-                        InetAddress.getByName(MULTICAST_GROUP_ADDRESS),
+                        multicastAddress,
                         MULTICAST_PORT
                 )
                 datagramSocket.send(msgPacket)
@@ -57,13 +57,23 @@ class ClientRunnable(private val multicastSocket: MulticastSocket) : Runnable {
 }
 
 fun main(args: Array<String>) {
-    val datagramSocket = DatagramSocket(MY_PORT, InetAddress.getByName(args[0]))
+    val myAddress = InetAddress.getByName(args.getOrNull(0))
+    if (!myAddress.isLoopbackAddress) {
+        println("Not a loopback address")
+        return
+    }
+    val multicastAddress = InetAddress.getByName(args.getOrNull(1))
+    if (!multicastAddress.isMulticastAddress) {
+        println("Not a multicast address")
+        return
+    }
+
+    val datagramSocket = DatagramSocket(MY_PORT, myAddress)
     val multicastSocket = MulticastSocket(MULTICAST_PORT)
-    val addr = InetAddress.getByName(MULTICAST_GROUP_ADDRESS)
-    multicastSocket.joinGroup(addr)
+    multicastSocket.joinGroup(multicastAddress)
 
     val clientRunnable = ClientRunnable(multicastSocket)
-    val serverRunnable = ServerRunnable(datagramSocket)
+    val serverRunnable = ServerRunnable(datagramSocket, multicastAddress)
 
     val clientThread = Thread(clientRunnable)
     val serverThread = Thread(serverRunnable)
@@ -74,7 +84,7 @@ fun main(args: Array<String>) {
     clientThread.join()
     serverThread.join()
 
-    multicastSocket.leaveGroup(addr)
+    multicastSocket.leaveGroup(multicastAddress)
     multicastSocket.close()
     datagramSocket.close()
 }
