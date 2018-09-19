@@ -8,7 +8,7 @@ const val MULTICAST_GROUP_ADDRESS = "224.11.11.11"
 const val MULTICAST_PORT = 60000
 const val MY_PORT = 51111
 
-class ServerRunnable(val datagramSocket: DatagramSocket) : Runnable {
+class ServerRunnable(private val datagramSocket: DatagramSocket) : Runnable {
     override fun run() {
         try {
             while (true) {
@@ -20,7 +20,7 @@ class ServerRunnable(val datagramSocket: DatagramSocket) : Runnable {
                         MULTICAST_PORT
                 )
                 datagramSocket.send(msgPacket)
-                Thread.sleep(1000)
+                Thread.sleep(5000)
             }
         } catch (ex: IOException) {
             ex.printStackTrace()
@@ -30,20 +30,26 @@ class ServerRunnable(val datagramSocket: DatagramSocket) : Runnable {
     }
 }
 
-class ClientRunnable(val multicastSocket: MulticastSocket) : Runnable {
+class ClientRunnable(private val multicastSocket: MulticastSocket) : Runnable {
+    val others = mutableListOf<InetAddress>()
     override fun run() {
         while (true) {
             val buf = ByteArray(1024)
             val packet = DatagramPacket(buf, buf.size)
             multicastSocket.receive(packet)
-            println("Received data from: " + packet.address.toString() + ":" + packet.port);
+            if (!others.contains(packet.address)) {
+                println("New member ${packet.address}:${packet.port}")
+                others.add(packet.address)
+            }
+            others.forEach { println(it.hostAddress) }
+            println()
         }
     }
 
 }
 
 fun main(args: Array<String>) {
-    val datagramSocket = DatagramSocket(MY_PORT)
+    val datagramSocket = DatagramSocket(MY_PORT, InetAddress.getByName(args[0]))
     val multicastSocket = MulticastSocket(MULTICAST_PORT)
     val addr = InetAddress.getByName(MULTICAST_GROUP_ADDRESS)
     multicastSocket.joinGroup(addr)
