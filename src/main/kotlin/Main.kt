@@ -5,8 +5,12 @@ import java.net.InetAddress
 import java.net.MulticastSocket
 
 const val MULTICAST_GROUP_ADDRESS = "224.11.11.11"
+
+const val TTL = 10
 const val MULTICAST_PORT = 60000
 const val MY_PORT = 51111
+
+data class MulticastGroupMemberInfo(val address: InetAddress, var timeRemaining: Int = TTL)
 
 class ServerRunnable(private val datagramSocket: DatagramSocket) : Runnable {
     override fun run() {
@@ -31,18 +35,22 @@ class ServerRunnable(private val datagramSocket: DatagramSocket) : Runnable {
 }
 
 class ClientRunnable(private val multicastSocket: MulticastSocket) : Runnable {
-    val others = mutableListOf<InetAddress>()
+    val others = mutableListOf<MulticastGroupMemberInfo>()
     override fun run() {
         while (true) {
             val buf = ByteArray(1024)
             val packet = DatagramPacket(buf, buf.size)
             multicastSocket.receive(packet)
-            if (!others.contains(packet.address)) {
+            if (!others.any { it.address == packet.address }) {
                 println("New member ${packet.address}:${packet.port}")
-                others.add(packet.address)
+                others.add(MulticastGroupMemberInfo(packet.address))
+                others.forEach { println(it.address) }
+                println()
+            } else {
+                others.forEach { if (it.address == packet.address) it.timeRemaining++ }
             }
-            others.forEach { println(it.hostAddress) }
-            println()
+            others.forEach { it.timeRemaining-- }
+            others.removeIf { it.timeRemaining == 0 }
         }
     }
 
