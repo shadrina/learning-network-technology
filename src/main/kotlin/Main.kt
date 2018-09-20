@@ -12,7 +12,8 @@ data class MulticastGroupMemberInfo(val address: InetAddress, var timeRemaining:
 
 class ServerRunnable(
         private val datagramSocket: DatagramSocket,
-        private val multicastAddress: InetAddress) : Runnable {
+        private val multicastAddress: InetAddress
+) : Runnable {
     override fun run() {
         try {
             while (true) {
@@ -24,7 +25,7 @@ class ServerRunnable(
                         MULTICAST_PORT
                 )
                 datagramSocket.send(msgPacket)
-                Thread.sleep(5000)
+                Thread.sleep(1000L)
             }
         } catch (ex: IOException) {
             ex.printStackTrace()
@@ -47,13 +48,12 @@ class ClientRunnable(private val multicastSocket: MulticastSocket) : Runnable {
                 others.forEach { println(it.address) }
                 println()
             } else {
-                others.forEach { if (it.address == packet.address) it.timeRemaining++ }
+                others.forEach { if (it.address == packet.address) it.timeRemaining = TTL }
             }
             others.forEach { it.timeRemaining-- }
             others.removeIf { it.timeRemaining == 0 }
         }
     }
-
 }
 
 fun main(args: Array<String>) {
@@ -72,11 +72,8 @@ fun main(args: Array<String>) {
     val multicastSocket = MulticastSocket(MULTICAST_PORT)
     multicastSocket.joinGroup(multicastAddress)
 
-    val clientRunnable = ClientRunnable(multicastSocket)
-    val serverRunnable = ServerRunnable(datagramSocket, multicastAddress)
-
-    val clientThread = Thread(clientRunnable)
-    val serverThread = Thread(serverRunnable)
+    val clientThread = Thread(ClientRunnable(multicastSocket))
+    val serverThread = Thread(ServerRunnable(datagramSocket, multicastAddress))
 
     clientThread.start()
     serverThread.start()
