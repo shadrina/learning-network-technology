@@ -10,8 +10,6 @@ import java.nio.charset.Charset;
 
 public class Server extends Thread implements Commons {
 
-    private Timer timer = new Timer();
-
     private static void errorExit(String message) {
         System.err.println(message);
         System.exit(1);
@@ -39,6 +37,7 @@ public class Server extends Thread implements Commons {
     }
 
     private Socket socket;
+    private Timer timer = new Timer();
 
     private Server(Socket socket) {
         this.socket = socket;
