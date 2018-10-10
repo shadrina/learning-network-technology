@@ -1,6 +1,7 @@
 package ru.nsu.shadrina.server;
 
 import ru.nsu.shadrina.Commons;
+import ru.nsu.shadrina.Timer;
 
 import java.io.*;
 import java.net.ServerSocket;
@@ -9,60 +10,30 @@ import java.nio.charset.Charset;
 
 public class Server extends Thread implements Commons {
 
-    private static RequestTimeMeter myTimer = new RequestTimeMeter();
+    private Timer timer = new Timer();
+
+    private static void errorExit(String message) {
+        System.err.println(message);
+        System.exit(1);
+    }
 
     public static void main(String[] args) {
         System.out.println("Server started...");
-        myTimer.start();
+
         ServerSocket serverSocket = null;
         try {
             serverSocket = new ServerSocket(SERVER_PORT);
             while (true) new Server(serverSocket.accept());
-        } catch (IOException ex) {
-            System.err.println("Unable to start server");
-            ex.printStackTrace();
-        } finally {
-            try {
-                if (serverSocket != null) {
-                    serverSocket.close();
-                }
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-        }
-    }
-
-    @Override
-    public void run() {
-        InputStream in = null;
-        OutputStream out = null;
-        try {
-            in = socket.getInputStream();
-            out = socket.getOutputStream();
-            while (true) {
-                try {
-                    handleRequest(in);
-                    out.write("File successfully saved!\n".getBytes());
-                    out.flush();
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                    break;
-                }
-            }
 
         } catch (IOException ex) {
-            System.err.println("Unable to get streams from client");
+            errorExit("Unable to start server");
+
         } finally {
             try {
-                if (in != null) {
-                    in.close();
-                }
-                if (out != null) {
-                    out.close();
-                }
-                socket.close();
+                if (serverSocket != null) serverSocket.close();
+
             } catch (IOException ex) {
-                ex.printStackTrace();
+                errorExit("Can't close server socket");
             }
         }
     }
@@ -79,41 +50,96 @@ public class Server extends Thread implements Commons {
         start();
     }
 
-    private void handleRequest(InputStream inputStream) throws IOException {
-        int headerSize = inputStream.read();
-        if (headerSize == -1) invalidRequestError();
-        byte[] header = new byte[headerSize];
-        int read = inputStream.read(header);
-        if (read == -1) invalidRequestError();
+    @Override
+    public void run() {
+        InputStream in = null;
+        OutputStream out = null;
+        try {
+            in = socket.getInputStream();
+            out = socket.getOutputStream();
 
-        String info[] = new String(header, Charset.forName("UTF-8")).split(":");
-        String fileName = info[0];
-        long fileSize = Long.parseLong(info[1]);
+            while (true) {
+                try {
+                    handleRequest(in);
+                    out.write("File successfully saved!\n".getBytes());
+                    out.flush();
 
-        String path = "uploads\\" + fileName;
-        FileOutputStream outputStream = new FileOutputStream(path);
+                } catch (IOException ex) {
+                    errorExit("Error while handling request");
+                }
+            }
 
-        long startTime = System.currentTimeMillis();
-        writeData(inputStream, outputStream, fileSize);
-        long stopTime = System.currentTimeMillis();
-        double elapsedTime = stopTime - startTime;
-        myTimer.lastSpeed = new Speed(elapsedTime, fileSize);
+        } catch (IOException ex) {
+            System.err.println("Unable to get streams from client");
 
-        outputStream.flush();
-        outputStream.close();
-    }
+        } finally {
+            try {
+                if (in != null) in.close();
+                if (out != null) out.close();
+                socket.close();
 
-    private void writeData(InputStream inputStream, OutputStream outputStream, long dataSize) throws IOException {
-        int data;
-        for (int i = 0; i < dataSize; i++) {
-            data = inputStream.read();
-            if (data == -1) invalidRequestError();
-            outputStream.write(data);
+            } catch (IOException ex) {
+                errorExit("Can't close resources");
+            }
         }
     }
 
-    private void invalidRequestError() {
-        System.err.println("Invalid request");
-        System.exit(1);
+    private void handleRequest(InputStream inputStream) throws IOException {
+        int headerSize = inputStream.read();
+        if (headerSize == -1) errorExit("Invalid request");
+        byte[] header = new byte[headerSize];
+        int read = inputStream.read(header);
+        if (read == -1) errorExit("Invalid request");
+
+        String info[] = new String(header, Charset.forName("UTF-8")).split(":");
+        String fileName = info[0];
+        Long fileSize = Long.parseLong(info[1]);
+
+        long start = System.currentTimeMillis();
+        writeFile(inputStream, fileName, fileSize);
+        long end = System.currentTimeMillis();
+        double seconds = (end - start) * 1. / 1000;
+        timer.setCurrentSeconds(seconds);
+        timer.setMbCountCurrent(fileSize * 1. / 1024. / 1024.);
+        timer.outputStatistics();
+    }
+
+    private void writeFile(
+            InputStream inputStream,
+            String fileName,
+            Long fileSize
+    ) throws IOException {
+
+        String path = UPLOAD_PATH + fileName;
+        FileOutputStream fos = new FileOutputStream(path);
+
+        System.out.println("Start receiving...");
+
+        long receivedData = 0;
+        int receivedDataPercent = 0;
+        int previousOutputByteSize = 0;
+        byte[] buffer = new byte[BUFFER_SIZE];
+        while (receivedData < fileSize) {
+            int code = inputStream.read(buffer);
+            if (code == -1) errorExit("Invalid request");
+
+            receivedData += code;
+            fos.write(buffer);
+
+            for (int i = 0; i < previousOutputByteSize; i++) {
+                System.out.print('\r');
+            }
+            System.out.flush();
+
+            receivedDataPercent = (int)(receivedData * 1. / fileSize * 100);
+            String output = receivedDataPercent + "%";
+            System.out.print(output);
+            System.out.flush();
+            previousOutputByteSize = output.getBytes().length;
+        }
+        System.out.println("\nSaved new file " + fileName + "!");
+
+        fos.flush();
+        fos.close();
     }
 }

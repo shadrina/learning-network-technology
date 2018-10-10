@@ -5,88 +5,97 @@ import ru.nsu.shadrina.Commons;
 import java.io.*;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.nio.file.Files;
 
 public class Client implements Commons {
+
+    private static void errorExit(String message) {
+        System.err.println(message);
+        System.exit(1);
+    }
 
     public static void main(String args[]) {
         new Client();
     }
 
     private Client() {
+        System.out.println("Connecting to host " + SERVER_HOST + " on port " + SERVER_PORT);
+
+        Socket echoSocket = null;
+        OutputStream out = null;
+        BufferedReader in = null;
+        BufferedReader userIn = null;
         try {
-            System.out.println("Connecting to host " + SERVER_HOST + " on port " + SERVER_PORT);
+            echoSocket = new Socket(SERVER_HOST, SERVER_PORT);
+            out = echoSocket.getOutputStream();
+            in = new BufferedReader(new InputStreamReader(echoSocket.getInputStream()));
+            userIn = new BufferedReader(new InputStreamReader(System.in));
 
-            Socket echoSocket = null;
-            DataOutputStream out = null;
-            BufferedReader in = null;
+            while (processRequest(out, in, userIn));
 
+        } catch (UnknownHostException ex) {
+            errorExit("Unknown host: " + SERVER_HOST);
+
+        } catch (IOException ex) {
+            errorExit("Unable to get streams from server");
+
+        } finally {
             try {
-                echoSocket = new Socket(SERVER_HOST, SERVER_PORT);
+                if (echoSocket != null) echoSocket.close();
+                if (out != null) out.close();
+                if (in != null) in.close();
+                if (userIn != null) userIn.close();
 
-                out = new DataOutputStream(echoSocket.getOutputStream());
-                in = new BufferedReader(new InputStreamReader(echoSocket.getInputStream()));
-            } catch (UnknownHostException ex) {
-                System.err.println("Unknown host: " + SERVER_HOST);
-                System.exit(1);
             } catch (IOException ex) {
-                System.err.println("Unable to get streams from server");
-                System.exit(1);
+                errorExit("Unable to close resources");
             }
-
-            BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
-
-            while (true) {
-                System.out.print("File path: ");
-                String filePath = userInput.readLine();
-                /* Exit on 'q' char sent */
-                if ("q".equals(filePath)) {
-                    break;
-                }
-                byte[] myPacket = generateMyPacket(filePath);
-                out.write(myPacket);
-                out.flush();
-                System.out.println("Response: " + in.readLine());
-            }
-
-            out.close();
-            in.close();
-            userInput.close();
-            echoSocket.close();
-
-        } catch (Exception ex) {
-            ex.printStackTrace();
         }
     }
 
-    private static byte[] generateMyPacket(String filePath) {
-        File file = new File(filePath);
-        byte[] myHeader = generateMyHeader(file);
-        byte[] payload = getFileContent(file);
-        byte[] packet = new byte[myHeader.length + payload.length];
-        System.arraycopy(myHeader, 0, packet, 0, myHeader.length);
-        System.arraycopy(payload, 0, packet, myHeader.length, payload.length);
+    private boolean processRequest(
+            OutputStream out,
+            BufferedReader in,
+            BufferedReader userIn
+    ) throws IOException {
+        System.out.print("File path: ");
 
-        return packet;
+        String filePath = userIn.readLine();
+        if (filePath.equals("q")) return false;
+
+        File file = new File(filePath);
+        sendHeader(out, file);
+        sendFile(out, file);
+
+        System.out.println("Response: " + in.readLine());
+        return true;
     }
 
-    private static byte[] generateMyHeader(File file) {
-        String infoString = file.getName() + ":" + file.length();
+    private void sendHeader(OutputStream out, File file) throws IOException {
+        long fileByteSize = file.length();
+
+        String infoString = file.getName() + ":" + fileByteSize;
         byte[] info = infoString.getBytes();
         byte[] header = new byte[info.length + 1];
         header[0] = (byte)info.length;
         System.arraycopy(info, 0, header, 1, info.length);
 
-        return header;
+        out.write(header);
+        out.flush();
     }
 
-    private static byte[] getFileContent(File file) {
-        byte[] result = null;
-        try {
-            result = Files.readAllBytes(file.toPath());
-        } catch (IOException ex) {
-            ex.printStackTrace();
+    private void sendFile(OutputStream out, File file) throws IOException {
+        FileInputStream fin = new FileInputStream(file);
+        byte[] buffer = new byte[BUFFER_SIZE];
+
+        long sentData = 0;
+        while (sentData != file.length()) {
+            int code = fin.read(buffer);
+            if (code == -1) errorExit("FileInputStream.read() returned -1");
+            out.write(buffer, 0, code);
+            out.flush();
+
+            sentData += code;
         }
-        return result;
+
+        fin.close();
     }
 }
