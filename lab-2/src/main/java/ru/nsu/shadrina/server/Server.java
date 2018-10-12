@@ -123,7 +123,8 @@ public class Server extends Thread implements Commons {
             if (code == -1) errorExit("Invalid request");
 
             receivedData += code;
-            fos.write(buffer);
+            fos.write(buffer, 0, code);
+            fos.flush();
 
             for (int i = 0; i < previousOutputByteSize; i++) {
                 System.out.print('\r');

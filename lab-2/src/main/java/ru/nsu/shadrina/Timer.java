@@ -17,7 +17,7 @@ public class Timer {
         System.out.println("-----------------");
     }
 
-    public double currentSpeed() {
+    private double currentSpeed() {
         if (currentSeconds != 0) {
             return mbCountCurrent / currentSeconds;
         } else {
@@ -25,7 +25,7 @@ public class Timer {
         }
     }
 
-    public double commonSpeed() {
+    private double commonSpeed() {
         if (commonSeconds != 0) {
             return mbCountCommon / commonSeconds;
         } else {
