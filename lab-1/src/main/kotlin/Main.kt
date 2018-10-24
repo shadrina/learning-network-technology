@@ -56,7 +56,7 @@ class ClientRunnable(private val multicastSocket: MulticastSocket) : Runnable {
 
             if (others.any { it.timeRemaining == 0 }) {
                 others.forEach { if (it.timeRemaining == 0) println(it.address.toString() + " is leaving!") }
-                others.filter{ it.timeRemaining != 0 }.forEach { println(it.address) }
+                others.filter { it.timeRemaining != 0 }.forEach { println(it.address) }
                 println()
             }
             others.removeIf { it.timeRemaining == 0 }
