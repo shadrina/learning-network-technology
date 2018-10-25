@@ -33,7 +33,7 @@ class ChatNode(
         }
 
         val senderThread = Sender(socket, messagesToSend)
-        // val managerThread = Manager(messagesInfo, messagesToSend, subscribers)
+        val managerThread = Manager(messagesInfo, messagesToSend, subscribers)
         val receiverThread = Receiver(
                 name,
                 socket,
@@ -44,7 +44,7 @@ class ChatNode(
         )
 
         senderThread.start()
-        // managerThread.start()
+        managerThread.start()
         receiverThread.start()
 
         while (true) {
@@ -57,7 +57,7 @@ class ChatNode(
         }
 
         senderThread.join()
-        // managerThread.join()
+        managerThread.join()
         receiverThread.join()
 
         socket.close()

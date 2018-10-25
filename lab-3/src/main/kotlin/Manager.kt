@@ -1,4 +1,4 @@
-const val TIMEOUT = 5000L
+const val TIMEOUT = 1000L
 
 class Manager(
         private val messagesInfo: MutableList<MessageInfo>,
@@ -7,6 +7,7 @@ class Manager(
 ) : Thread() {
     override fun run() {
         while (true) {
+            Thread.sleep(TIMEOUT)
             messagesInfo.removeIf { it.receivers.size == 0 }
             messagesInfo.forEach { it.ttl-- }
             messagesInfo
@@ -17,8 +18,6 @@ class Manager(
                         }
                         messageInfo.ttl = 5
                     }
-
-            Thread.sleep(TIMEOUT)
         }
     }
 }

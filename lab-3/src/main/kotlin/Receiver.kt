@@ -42,8 +42,10 @@ class Receiver(
                     messagesToSend.add(Message(confirmation, sender))
                 }
                 2 -> messagesInfo
-                        .firstOrNull { it.sentMessage == "1:$myName:${info[2]}" }
-                        ?.receivers?.removeIf { it == sender }
+                        .firstOrNull {
+                            "1:$myName:${info[2]}".contains(it.sentMessage)
+                        }?.receivers
+                        ?.removeIf { it == sender }
             }
         }
     }
