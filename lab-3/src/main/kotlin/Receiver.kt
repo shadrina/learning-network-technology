@@ -36,14 +36,14 @@ class Receiver(
                     }
                     val receivers = subscribers.toMutableList()
                     receivers.removeIf { it == sender }
-                    messagesInfo.add(MessageInfo("1:$myName:${info[2]}", receivers))
+                    messagesInfo.add(MessageInfo("1:${info[1]}:${info[2]}", receivers))
 
-                    val confirmation = "2:$myName:${info[2]}"
+                    val confirmation = "2:${info[1]}:${info[2]}"
                     messagesToSend.add(Message(confirmation, sender))
                 }
                 2 -> messagesInfo
                         .firstOrNull {
-                            val msg = "1:$myName:${info[2]}".replace("\u0000", "")
+                            val msg = "1:${info[1]}:${info[2]}".replace("\u0000", "")
                             val msgToCompare = it.sentMessage.replace("\u0000", "")
 
                             msg == msgToCompare

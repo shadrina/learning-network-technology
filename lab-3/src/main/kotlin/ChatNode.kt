@@ -29,7 +29,7 @@ class ChatNode(
         if (parentIp != null && parentPort != null) {
             val parent = Subscriber(parentIp, parentPort)
             subscribers.add(parent)
-            val message = "0:$name"
+            val message = "0:$name:I am your child!"
             messagesToSend.add(Message(message, parent))
         }
 
