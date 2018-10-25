@@ -6,7 +6,8 @@ data class Message(val message: String, val addressee: Subscriber)
 data class MessageInfo(
         val sentMessage: String,
         val receivers: MutableList<Subscriber>,
-        var ttl: Int = 5
+        var ttl: Int = TTL,
+        var attempts: Int = 0
 )
 
 class ChatNode(
