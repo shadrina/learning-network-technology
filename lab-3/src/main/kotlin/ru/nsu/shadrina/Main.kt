@@ -1,3 +1,6 @@
+package ru.nsu.shadrina
+
+import ru.nsu.shadrina.tree.ChatNode
 import java.net.InetAddress
 
 fun main(args: Array<String>) {

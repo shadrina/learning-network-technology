@@ -1,11 +1,12 @@
-const val TTL = 3
-const val TIMEOUT = 1000L
-const val MAX_ATTEMPTS = 5
+package ru.nsu.shadrina.tree
+
+import ru.nsu.shadrina.util.*
+import java.util.concurrent.LinkedBlockingQueue
 
 class Manager(
-        private val messagesInfo: MutableList<MessageInfo>,
-        private val messagesToSend: MutableList<Message>,
-        private val subscribers: MutableList<Subscriber>
+        private val messagesInfo: LinkedBlockingQueue<MessageInfo>,
+        private val messagesToSend: LinkedBlockingQueue<Message>,
+        private val subscribers: LinkedBlockingQueue<Subscriber>
 ) : Thread() {
     override fun run() {
         while (true) {
@@ -18,12 +19,12 @@ class Manager(
                 }
                 messagesInfo.receivers.size == 0 || messagesInfo.attempts == MAX_ATTEMPTS
             }
-            messagesInfo.forEach { it.ttl-- }
             messagesInfo
+                    .map{ it.apply { ttl-- } }
                     .filter { it.ttl == 0 }
                     .forEach { messageInfo ->
                         messageInfo.receivers.forEach {receiver ->
-                            messagesToSend.add(Message(messageInfo.sentMessage, receiver))
+                            messagesToSend.put(Message(messageInfo.sentMessage, receiver))
                         }
                         messageInfo.attempts++
                         messageInfo.ttl = TTL
