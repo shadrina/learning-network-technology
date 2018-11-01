@@ -15,6 +15,7 @@ class ChatNode(
     private val subscribers = LinkedBlockingQueue<Subscriber>()
     private val messagesToSend = LinkedBlockingQueue<Message>()
     private val messagesInfo = LinkedBlockingQueue<MessageInfo>()
+    private val history = LinkedBlockingQueue<MessageID>()
 
     init {
         val socket = DatagramSocket(myPort, InetAddress.getLocalHost())
@@ -23,12 +24,13 @@ class ChatNode(
         registerParent()
 
         val senderThread = Sender(socket, messagesToSend)
-        val managerThread = Manager(messagesInfo, messagesToSend, subscribers)
+        val managerThread = Manager(messagesInfo, messagesToSend, subscribers, history)
         val receiverThread = Receiver(
                 socket,
                 subscribers,
                 messagesInfo,
                 messagesToSend,
+                history,
                 lossPercentage
         )
 
@@ -52,6 +54,7 @@ class ChatNode(
             val guid = rand(GUID_FROM, GUID_TO)
             val message = "0:$name:I am your child!:$guid"
             messagesToSend.put(Message(message, parent))
+            messagesInfo.put(MessageInfo(message, mutableListOf(parent)))
         }
     }
 

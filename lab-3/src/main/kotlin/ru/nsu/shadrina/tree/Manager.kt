@@ -6,19 +6,23 @@ import java.util.concurrent.LinkedBlockingQueue
 class Manager(
         private val messagesInfo: LinkedBlockingQueue<MessageInfo>,
         private val messagesToSend: LinkedBlockingQueue<Message>,
-        private val subscribers: LinkedBlockingQueue<Subscriber>
+        private val subscribers: LinkedBlockingQueue<Subscriber>,
+        private val history: LinkedBlockingQueue<MessageID>
 ) : Thread() {
     override fun run() {
         while (true) {
             Thread.sleep(TIMEOUT)
-            messagesInfo.removeIf {messagesInfo ->
+            history.takeWhile { it.ttl == 0 }
+            history.forEach { it.ttl-- }
+            messagesInfo.takeWhile { messagesInfo ->
                 if (messagesInfo.attempts == MAX_ATTEMPTS) {
-                    subscribers.removeIf { subscriber ->
+                    subscribers.takeWhile { subscriber ->
                         messagesInfo.receivers.firstOrNull { it == subscriber } != null
                     }
                 }
                 messagesInfo.receivers.size == 0 || messagesInfo.attempts == MAX_ATTEMPTS
             }
+
             messagesInfo
                     .map{ it.apply { ttl-- } }
                     .filter { it.ttl == 0 }
